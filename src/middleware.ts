@@ -6,26 +6,38 @@ export async function middleware(request: NextRequest) {
     request: { headers: request.headers },
   });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Se as env vars não estiverem configuradas no Vercel, não quebre o middleware.
+  // Isso permite que a tela de login carregue e exiba erro normal do Supabase no front.
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return response;
+  }
+
+  let user: any = null;
+  try {
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet: { name: string; value: string; options?: object }[]) {
+        setAll(
+          cookiesToSet: { name: string; value: string; options?: object }[]
+        ) {
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           );
         },
       },
-    }
-  );
+    });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const res = await supabase.auth.getUser();
+    user = res.data.user ?? null;
+  } catch {
+    // Falha ao falar com Supabase/edge runtime: não bloquear rotas públicas.
+    return response;
+  }
 
   const isAuthRoute = request.nextUrl.pathname === "/login";
   const isResetRoute = request.nextUrl.pathname.startsWith("/login/reset");
