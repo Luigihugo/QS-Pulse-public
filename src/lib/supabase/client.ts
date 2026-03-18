@@ -1,0 +1,9 @@
+import { createBrowserClient } from "@supabase/ssr";
+
+/** Cliente Supabase para o browser: grava a sessão em cookies para o middleware/servidor reconhecerem o login. */
+export function createClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}

@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    text-rendering: geometricPrecision;
+  }
+
+  body {
+    @apply bg-surface-1 text-brand-navy antialiased;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply min-h-screen bg-gradient-to-br from-surface-1 via-surface-1 to-surface-2;
+  }
+
+  .app-main {
+    @apply flex-1 p-6;
+  }
+
+  .card {
+    @apply rounded-2xl border border-neutral-200/80 bg-white/90 shadow-card backdrop-blur;
+  }
+
+  .card-muted {
+    @apply rounded-2xl border border-dashed border-neutral-200 bg-neutral-50/70;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand-teal text-brand-ink shadow-glowTeal hover:bg-[#22e6b5];
+  }
+
+  .btn-secondary {
+    @apply btn bg-brand-purple text-white shadow-glowPurple hover:bg-[#4520e0];
+  }
+
+  .btn-ghost {
+    @apply btn border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none ring-0 transition focus:border-brand-purple/40 focus:shadow-[0_0_0_4px_rgba(82,39,255,0.10)];
+  }
+
+  .label {
+    @apply block text-sm font-medium text-neutral-700;
+  }
+}
