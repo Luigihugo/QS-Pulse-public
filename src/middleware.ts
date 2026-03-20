@@ -55,7 +55,7 @@ export async function middleware(request: NextRequest) {
 
   if (user && isAuthRoute && !isResetRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/app/feed";
+    url.pathname = "/app";
     return NextResponse.redirect(url);
   }
 

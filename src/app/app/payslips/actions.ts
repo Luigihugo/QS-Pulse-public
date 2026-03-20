@@ -24,14 +24,17 @@ export async function uploadPayslip(formData: FormData): Promise<UploadResult> {
     return { ok: false, error: "Preencha todos os campos e selecione um PDF." };
   }
 
+  if (file.type !== "application/pdf") {
+    return { ok: false, error: "Apenas arquivos PDF são permitidos." };
+  }
+
   const y = parseInt(year, 10);
   const m = parseInt(month, 10);
   if (Number.isNaN(y) || Number.isNaN(m) || m < 1 || m > 12) {
     return { ok: false, error: "Mês/ano inválidos." };
   }
 
-  const ext = file.name.toLowerCase().endsWith(".pdf") ? "pdf" : "pdf";
-  const fileName = `${y}-${String(m).padStart(2, "0")}.${ext}`;
+  const fileName = `${y}-${String(m).padStart(2, "0")}.pdf`;
   const filePath = `${orgId}/${userId}/${fileName}`;
 
   const { error: uploadError } = await supabase.storage

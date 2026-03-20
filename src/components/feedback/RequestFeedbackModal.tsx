@@ -19,6 +19,7 @@ export function RequestFeedbackModal({
   onSuccess,
 }: RequestFeedbackModalProps) {
   const [recipientId, setRecipientId] = useState("");
+  const [message, setMessage] = useState("");
   const [members, setMembers] = useState<{ id: string; full_name: string | null }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,12 +54,29 @@ export function RequestFeedbackModal({
       setLoading(false);
       return;
     }
-    const { error: err } = await supabase.from("feedback_requests").insert({
+    let err: { message: string } | null = null;
+    const payload = {
       org_id: orgId,
       requester_id: user.id,
       recipient_id: recipientId,
       status: "pending",
-    });
+      message: message.trim() || null,
+    };
+
+    const firstTry = await supabase.from("feedback_requests").insert(payload);
+    err = firstTry.error ? { message: firstTry.error.message } : null;
+
+    // Retrocompatibilidade: se a migration da coluna "message" ainda não foi aplicada,
+    // tenta inserir sem esse campo para não quebrar o fluxo.
+    if (err?.message?.includes("message") && err.message.includes("feedback_requests")) {
+      const fallbackTry = await supabase.from("feedback_requests").insert({
+        org_id: orgId,
+        requester_id: user.id,
+        recipient_id: recipientId,
+        status: "pending",
+      });
+      err = fallbackTry.error ? { message: fallbackTry.error.message } : null;
+    }
     setLoading(false);
     if (err) {
       setError(err.message);
@@ -66,6 +84,7 @@ export function RequestFeedbackModal({
     }
     onSuccess();
     setRecipientId("");
+    setMessage("");
     onClose();
   }
 
@@ -113,6 +132,22 @@ export function RequestFeedbackModal({
                 </option>
               ))}
             </select>
+          </div>
+          <div>
+            <label
+              htmlFor="request-message"
+              className="block text-sm font-medium text-neutral-700"
+            >
+              Mensagem (opcional)
+            </label>
+            <textarea
+              id="request-message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={3}
+              placeholder="Ex.: Pode me dar feedback sobre a última reunião que apresentei?"
+              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+            />
           </div>
           <div className="flex gap-2 pt-2">
             <button

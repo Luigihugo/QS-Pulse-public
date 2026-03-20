@@ -11,7 +11,7 @@ export default async function AdminUsersPage() {
   const user = await getCurrentUser();
 
   if (!org || !user) redirect("/login");
-  if (!canAccessAdminUsers(org.role)) redirect("/app/feed");
+  if (!canAccessAdminUsers(org.role)) redirect("/app");
 
   const supabase = await createClient();
   const { data: members } = await supabase

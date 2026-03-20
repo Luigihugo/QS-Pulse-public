@@ -35,7 +35,7 @@ export default function LoginPage() {
           return;
         }
         // Redirecionamento com full page load para os cookies da sessão serem enviados ao servidor/middleware
-        window.location.href = "/app/feed";
+        window.location.href = "/app";
       } else if (mode === "signup") {
         if (password.length < 8) {
           setError("Sua senha deve ter pelo menos 8 caracteres.");
@@ -57,7 +57,7 @@ export default function LoginPage() {
           return;
         }
         if (data.session) {
-          window.location.href = "/app/feed";
+          window.location.href = "/app";
         } else {
           setMessage(
             "Conta criada. Verifique seu e-mail para confirmar o acesso e depois faça login."

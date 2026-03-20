@@ -8,14 +8,33 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.storage
-    .from("payslips")
-    .createSignedUrl(path, 60);
 
-  const signedUrl = data?.signedUrl;
-  if (error || !signedUrl) {
-    return NextResponse.json({ error: "Não autorizado ou arquivo não encontrado" }, { status: 403 });
+  // Faz o download real do arquivo (RLS do storage valida a permissão)
+  const { data: blob, error } = await supabase.storage
+    .from("payslips")
+    .download(path);
+
+  if (error || !blob) {
+    return NextResponse.json(
+      { error: "Não autorizado ou arquivo não encontrado" },
+      { status: 403 }
+    );
   }
 
-  return NextResponse.redirect(signedUrl);
+  // Extrai o nome do arquivo do path: org_id/user_id/YYYY-MM.pdf
+  const segments = path.split("/");
+  const rawFilename = segments[segments.length - 1] ?? "holerite.pdf";
+  // Renomeia de "2025-01.pdf" para "holerite-2025-01.pdf"
+  const downloadName = rawFilename.startsWith("holerite-")
+    ? rawFilename
+    : `holerite-${rawFilename}`;
+
+  const arrayBuffer = await blob.arrayBuffer();
+
+  return new NextResponse(arrayBuffer, {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${downloadName}"`,
+    },
+  });
 }

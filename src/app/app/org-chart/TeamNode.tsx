@@ -94,7 +94,7 @@ export function TeamNode({
                 onChange={(e) => setEditParentId(e.target.value)}
                 className="rounded border border-neutral-300 px-2 py-1 text-sm"
               >
-                <option value="">Nenhum (raiz)</option>
+                <option value="">Nenhum (departamento raiz)</option>
                 {allTeams
                   .filter((t) => t.id !== team.id)
                   .map((t) => (

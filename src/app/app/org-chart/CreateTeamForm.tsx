@@ -45,7 +45,7 @@ export function CreateTeamForm({ orgId, teams }: CreateTeamFormProps) {
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <label htmlFor="new-team-name" className="block text-sm font-medium text-neutral-700">
-              Nome do time
+              Nome do time/departamento
             </label>
             <input
               id="new-team-name"
@@ -57,14 +57,14 @@ export function CreateTeamForm({ orgId, teams }: CreateTeamFormProps) {
           </div>
           <div>
             <label htmlFor="new-team-parent" className="block text-sm font-medium text-neutral-700">
-              Time pai (opcional)
+              Departamento/Time pai (opcional)
             </label>
             <select
               id="new-team-parent"
               name="parent_team_id"
               className="mt-1 w-full max-w-xs rounded-lg border border-neutral-300 px-3 py-2 text-neutral-900"
             >
-              <option value="">Nenhum (time raiz)</option>
+              <option value="">Nenhum (departamento raiz)</option>
               {flatTeams(teams).map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}

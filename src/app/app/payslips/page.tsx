@@ -1,6 +1,7 @@
 import { getCurrentOrg, canManagePayslips } from "@/lib/org";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { UploadPayslipForm } from "./UploadPayslipForm";
@@ -38,21 +39,40 @@ export default async function PayslipsPage() {
   }));
 
   const canUpload = canManagePayslips(org.role);
-  const showAll = canUpload;
 
-  let members: { user_id: string; full_name: string | null }[] = [];
+  let members: { user_id: string; full_name: string | null; email: string | null }[] = [];
   if (canUpload) {
     const { data: orgMembers } = await supabase
       .from("org_members")
       .select("user_id")
       .eq("org_id", org.id);
     const memberIds = (orgMembers ?? []).map((m) => m.user_id);
+
     const { data: memberProfiles } = await supabase
       .from("profiles")
       .select("id, full_name")
       .in("id", memberIds);
-    const profileMap = new Map(memberProfiles?.map((p) => [p.id, p.full_name]) ?? []);
-    members = memberIds.map((id) => ({ user_id: id, full_name: profileMap.get(id) ?? null }));
+    const nameMap = new Map(memberProfiles?.map((p) => [p.id, p.full_name]) ?? []);
+
+    // Busca emails via admin client (nunca expostos ao cliente)
+    const emailMap = new Map<string, string>();
+    try {
+      const admin = createAdminClient();
+      await Promise.all(
+        memberIds.map(async (id) => {
+          const { data } = await admin.auth.admin.getUserById(id);
+          if (data.user?.email) emailMap.set(id, data.user.email);
+        })
+      );
+    } catch {
+      // Admin client não configurado — continua sem email
+    }
+
+    members = memberIds.map((id) => ({
+      user_id: id,
+      full_name: nameMap.get(id) ?? null,
+      email: emailMap.get(id) ?? null,
+    }));
   }
 
   return (
@@ -88,7 +108,7 @@ export default async function PayslipsPage() {
                   <span className="font-medium text-neutral-900">
                     {MONTHS[p.month - 1]} / {p.year}
                   </span>
-                  {showAll && p.profiles?.full_name && (
+                  {canUpload && p.profiles?.full_name && (
                     <span className="ml-2 text-sm text-neutral-500">
                       — {p.profiles.full_name}
                     </span>
@@ -96,9 +116,12 @@ export default async function PayslipsPage() {
                 </div>
                 <Link
                   href={`/app/payslips/download?path=${encodeURIComponent(p.file_path)}`}
-                  className="rounded-lg bg-[#0e2a47] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#0e2a47]/90"
+                  className="flex items-center gap-1.5 rounded-lg bg-[#0e2a47] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#0e2a47]/90 transition"
                 >
-                  Baixar
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Baixar PDF
                 </Link>
               </li>
             ))}

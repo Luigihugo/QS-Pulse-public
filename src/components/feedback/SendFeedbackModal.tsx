@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { FEEDBACK_DIMENSIONS } from "@/types/database";
+import type { PendingFeedbackRequestItem } from "@/app/app/feedback/page";
 
 interface SendFeedbackModalProps {
   orgId: string;
   fromUserId: string;
+  pendingRequests: PendingFeedbackRequestItem[];
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -17,13 +19,21 @@ const SCORES = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 export function SendFeedbackModal({
   orgId,
   fromUserId,
+  pendingRequests,
   open,
   onClose,
   onSuccess,
 }: SendFeedbackModalProps) {
   const [aboutUserId, setAboutUserId] = useState("");
+  const [requestId, setRequestId] = useState("");
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [inPerson, setInPerson] = useState(false);
+  const [templateId, setTemplateId] = useState("");
+  const [content, setContent] = useState("");
+  const [internalNotes, setInternalNotes] = useState("");
   const [scores, setScores] = useState<Record<string, number>>({});
   const [members, setMembers] = useState<{ id: string; full_name: string | null }[]>([]);
+  const [templates, setTemplates] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +53,15 @@ export function SendFeedbackModal({
       .then((res) => {
         if (res?.data) setMembers(res.data);
       });
+
+    supabase
+      .from("feedback_templates")
+      .select("id, name")
+      .eq("org_id", orgId)
+      .order("name")
+      .then(({ data }) => {
+        if (data) setTemplates(data);
+      });
   }, [open, orgId, fromUserId]);
 
   useEffect(() => {
@@ -51,7 +70,21 @@ export function SendFeedbackModal({
       initial[d.key] = 3;
     });
     setScores(initial);
+    setRequestId("");
+    setTemplateId("");
+    setContent("");
+    setInternalNotes("");
+    setIsAnonymous(false);
+    setInPerson(false);
   }, [open]);
+
+  useEffect(() => {
+    if (!requestId) return;
+    const selected = pendingRequests.find((r) => r.id === requestId);
+    if (selected?.requester_id) {
+      setAboutUserId(selected.requester_id);
+    }
+  }, [requestId, pendingRequests]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -65,16 +98,51 @@ export function SendFeedbackModal({
       setLoading(false);
       return;
     }
-    const { data: feedback, error: insertErr } = await supabase
+    let feedback: { id: string } | null = null;
+    let insertErr: { message: string } | null = null;
+
+    const fullInsert = await supabase
       .from("feedbacks")
       .insert({
         org_id: orgId,
         from_user_id: user.id,
         about_user_id: aboutUserId,
-        request_id: null,
+        request_id: requestId || null,
+        is_anonymous: isAnonymous,
+        template_id: templateId || null,
+        content: content.trim() || null,
+        in_person: inPerson,
+        internal_notes: internalNotes.trim() || null,
       })
       .select("id")
       .single();
+
+    feedback = (fullInsert.data as { id: string } | null) ?? null;
+    insertErr = fullInsert.error ? { message: fullInsert.error.message } : null;
+
+    // Retrocompatibilidade: caso colunas novas ainda não existam no banco, tenta payload mínimo.
+    if (
+      insertErr?.message &&
+      (insertErr.message.includes("is_anonymous") ||
+        insertErr.message.includes("template_id") ||
+        insertErr.message.includes("content") ||
+        insertErr.message.includes("in_person") ||
+        insertErr.message.includes("internal_notes"))
+    ) {
+      const fallbackInsert = await supabase
+        .from("feedbacks")
+        .insert({
+          org_id: orgId,
+          from_user_id: user.id,
+          about_user_id: aboutUserId,
+          request_id: requestId || null,
+        })
+        .select("id")
+        .single();
+
+      feedback = (fallbackInsert.data as { id: string } | null) ?? null;
+      insertErr = fallbackInsert.error ? { message: fallbackInsert.error.message } : null;
+    }
 
     if (insertErr || !feedback) {
       setError(insertErr?.message ?? "Erro ao enviar.");
@@ -89,11 +157,20 @@ export function SendFeedbackModal({
     }));
     const { error: scoresErr } = await supabase.from("feedback_scores").insert(scoreRows);
 
-    setLoading(false);
     if (scoresErr) {
+      setLoading(false);
       setError(scoresErr.message);
       return;
     }
+
+    if (requestId) {
+      await supabase
+        .from("feedback_requests")
+        .update({ status: "completed" })
+        .eq("id", requestId);
+    }
+
+    setLoading(false);
     onSuccess();
     setAboutUserId("");
     onClose();
@@ -114,7 +191,7 @@ export function SendFeedbackModal({
           Enviar feedback
         </h2>
         <p className="mt-1 text-sm text-neutral-500">
-          Avalie um colega nas dimensões abaixo (0,5 a 5,0).
+          Selecione um colaborador e preencha os campos do feedback.
         </p>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           {error && (
@@ -122,6 +199,24 @@ export function SendFeedbackModal({
               {error}
             </p>
           )}
+          <div>
+            <label className="block text-sm font-medium text-neutral-700">
+              Solicitação pendente (opcional)
+            </label>
+            <select
+              value={requestId}
+              onChange={(e) => setRequestId(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+            >
+              <option value="">Nenhuma</option>
+              {pendingRequests.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.requester_name ?? "Colaborador"} - {new Date(r.created_at).toLocaleDateString("pt-BR")}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label
               htmlFor="about"
@@ -145,7 +240,49 @@ export function SendFeedbackModal({
             </select>
           </div>
 
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="flex items-start gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700">
+              <input
+                type="checkbox"
+                checked={isAnonymous}
+                onChange={(e) => setIsAnonymous(e.target.checked)}
+                className="mt-0.5"
+              />
+              Feedback anônimo para o colaborador
+            </label>
+            <label className="flex items-start gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700">
+              <input
+                type="checkbox"
+                checked={inPerson}
+                onChange={(e) => setInPerson(e.target.checked)}
+                className="mt-0.5"
+              />
+              Feedback foi dado presencialmente
+            </label>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-700">
+              Modelo de feedback
+            </label>
+            <select
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+            >
+              <option value="">Nenhum modelo</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="space-y-3 rounded-xl border border-neutral-100 bg-neutral-50/50 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+              Itens da empresa (0,5 a 5,0)
+            </p>
             {FEEDBACK_DIMENSIONS.map((d) => (
               <div key={d.key} className="flex items-center justify-between gap-4">
                 <label className="text-sm font-medium text-neutral-700">
@@ -169,6 +306,32 @@ export function SendFeedbackModal({
                 </select>
               </div>
             ))}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-700">
+              Descreva seu feedback
+            </label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={6}
+              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              placeholder="Contexto, pontos fortes, oportunidades e próximos passos."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-700">
+              Anotações internas (apenas para você)
+            </label>
+            <textarea
+              value={internalNotes}
+              onChange={(e) => setInternalNotes(e.target.value)}
+              rows={3}
+              className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+              placeholder="Observações privadas."
+            />
           </div>
 
           <div className="flex gap-2 pt-2">

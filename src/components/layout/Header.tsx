@@ -43,7 +43,7 @@ export function Header({ profile }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-neutral-200/70 bg-white/80 px-4 backdrop-blur">
-      <Link href="/app/feed" className="flex items-center gap-2">
+      <Link href="/app" className="flex items-center gap-2">
         <BrandLogo variant="icon" />
       </Link>
       <div className="relative">

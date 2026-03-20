@@ -51,7 +51,7 @@ export async function inviteUser(
     data: inviteData,
     error: inviteError,
   } = await admin.auth.admin.inviteUserByEmail(trimmed, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/onboarding`,
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/app`,
     data: { role },
   });
 

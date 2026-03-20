@@ -19,7 +19,7 @@ export default async function AppLayout({
 
   const org = await getCurrentOrg();
   if (!org) {
-    redirect("/onboarding");
+    redirect("/login");
   }
 
   const supabase = await createClient();

@@ -20,6 +20,10 @@ function buildTree(
     }));
 }
 
+function countTeamNodes(nodes: TeamWithMembers[]): number {
+  return nodes.reduce((acc, node) => acc + 1 + countTeamNodes(node.children), 0);
+}
+
 export default async function OrgChartPage() {
   const org = await getCurrentOrg();
   const user = await getCurrentUser();
@@ -79,15 +83,41 @@ export default async function OrgChartPage() {
   const flatTeams: TeamWithMembers[] = tree.flatMap(function flatten(t): TeamWithMembers[] {
     return [t, ...t.children.flatMap(flatten)];
   });
+  const totalTeams = flatTeams.length;
+  const totalDepartments = tree.length;
+  const totalPeopleLinked = flatTeams.reduce((acc, t) => acc + t.members.length, 0);
 
   return (
     <div className="mx-auto max-w-4xl pb-8">
-      <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Org Chart</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
+        Organograma QS
+      </h1>
       <p className="mt-1 text-sm text-neutral-500">
         {canManage
-          ? "Estrutura de times e membros. Você pode criar times, editar e adicionar pessoas."
-          : "Estrutura de times e membros da organização."}
+          ? "Estrutura por departamentos e times. Você pode criar, editar e vincular pessoas."
+          : "Estrutura por departamentos e times da organização."}
       </p>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+            Departamentos
+          </p>
+          <p className="mt-1 text-2xl font-bold text-neutral-900">{totalDepartments}</p>
+        </div>
+        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+            Times
+          </p>
+          <p className="mt-1 text-2xl font-bold text-neutral-900">{totalTeams}</p>
+        </div>
+        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+            Pessoas alocadas
+          </p>
+          <p className="mt-1 text-2xl font-bold text-neutral-900">{totalPeopleLinked}</p>
+        </div>
+      </div>
 
       {canManage && (
         <div className="mt-6">
@@ -104,14 +134,23 @@ export default async function OrgChartPage() {
           </div>
         ) : (
           tree.map((team) => (
-            <TeamNode
-              key={team.id}
-              orgId={org.id}
-              team={team}
-              allTeams={flatTeams}
-              orgMembers={orgMembersWithNames}
-              canManage={canManage}
-            />
+            <section key={team.id} className="space-y-3">
+              <div className="rounded-xl border border-[#5227FF]/20 bg-[#5227FF]/5 px-4 py-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-[#5227FF]">
+                  Departamento
+                </p>
+                <p className="text-sm font-semibold text-neutral-900">
+                  {team.name} · {countTeamNodes([team])} time(s)
+                </p>
+              </div>
+              <TeamNode
+                orgId={org.id}
+                team={team}
+                allTeams={flatTeams}
+                orgMembers={orgMembersWithNames}
+                canManage={canManage}
+              />
+            </section>
           ))
         )}
       </div>

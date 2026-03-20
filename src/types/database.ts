@@ -12,6 +12,27 @@ export interface Profile {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  bio: string | null;
+  headline: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProfilePrivateData {
+  id: string;
+  org_id: string;
+  user_id: string;
+  birth_date: string | null;
+  hire_date: string | null;
+  shoe_size: string | null;
+  address_line: string | null;
+  address_number: string | null;
+  address_city: string | null;
+  address_state: string | null;
+  address_zip: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  internal_notes: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -117,6 +138,7 @@ export interface FeedbackRequest {
   requester_id: string;
   recipient_id: string;
   status: FeedbackRequestStatus;
+  message: string | null;
   created_at: string;
 }
 
@@ -126,6 +148,11 @@ export interface Feedback {
   from_user_id: string;
   about_user_id: string;
   request_id: string | null;
+  is_anonymous: boolean;
+  template_id: string | null;
+  content: string | null;
+  in_person: boolean;
+  internal_notes: string | null;
   created_at: string;
 }
 
@@ -133,6 +160,16 @@ export interface FeedbackScore {
   feedback_id: string;
   dimension_key: string;
   score: number;
+}
+
+export interface FeedbackTemplate {
+  id: string;
+  org_id: string;
+  name: string;
+  description: string | null;
+  prompt: string | null;
+  created_by: string | null;
+  created_at: string;
 }
 
 export const FEEDBACK_DIMENSIONS: { key: string; label: string }[] = [
