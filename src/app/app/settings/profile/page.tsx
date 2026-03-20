@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { OrgRole } from "@/types/database";
 
+const AVATAR_ACCEPT = "image/jpeg,image/jpg,image/png,image/webp";
+
 export default function ProfileSettingsPage() {
   const [fullName, setFullName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [bio, setBio] = useState("");
   const [headline, setHeadline] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
@@ -94,6 +97,23 @@ export default function ProfileSettingsPage() {
     load();
   }, [router, supabase]);
 
+  function getAvatarExtension(file: File) {
+    const byMime: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/jpg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+    };
+    if (byMime[file.type]) return byMime[file.type];
+    return file.name.split(".").pop()?.toLowerCase() || "jpg";
+  }
+
+  function normalizeAvatarContentType(file: File) {
+    if (!file.type) return "image/jpeg";
+    if (file.type === "image/jpg") return "image/jpeg";
+    return file.type;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -106,11 +126,34 @@ export default function ProfileSettingsPage() {
       setSaving(false);
       return;
     }
+
+    let nextAvatarUrl = avatarUrl;
+    if (avatarFile) {
+      if (!orgId) {
+        setError("Não foi possível identificar a organização para upload.");
+        setSaving(false);
+        return;
+      }
+      const ext = getAvatarExtension(avatarFile);
+      const path = `${orgId}/${user.id}/avatar-${Date.now()}.${ext}`;
+      const uploadRes = await supabase.storage.from("avatars").upload(path, avatarFile, {
+        upsert: false,
+        contentType: normalizeAvatarContentType(avatarFile),
+      });
+      if (uploadRes.error) {
+        setError(uploadRes.error.message);
+        setSaving(false);
+        return;
+      }
+      const { data: publicData } = supabase.storage.from("avatars").getPublicUrl(path);
+      nextAvatarUrl = publicData.publicUrl ?? nextAvatarUrl;
+    }
+
     const { error: err } = await supabase
       .from("profiles")
       .update({
         full_name: fullName.trim() || null,
-        avatar_url: avatarUrl.trim() || null,
+        avatar_url: nextAvatarUrl.trim() || null,
         bio: bio.trim() || null,
         headline: headline.trim() || null,
       })
@@ -194,17 +237,25 @@ export default function ProfileSettingsPage() {
           />
         </div>
         <div>
-          <label htmlFor="avatarUrl" className="block text-sm font-medium text-neutral-700">
-            URL da foto (avatar)
+          <label htmlFor="avatarFile" className="block text-sm font-medium text-neutral-700">
+            Upload da foto (avatar)
           </label>
           <input
-            id="avatarUrl"
-            type="url"
-            value={avatarUrl}
-            onChange={(e) => setAvatarUrl(e.target.value)}
-            placeholder="https://…"
-            className="mt-1 w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+            id="avatarFile"
+            type="file"
+            accept={AVATAR_ACCEPT}
+            onChange={(e) => setAvatarFile(e.target.files?.[0] ?? null)}
+            className="mt-1 block w-full text-sm text-neutral-600 file:mr-4 file:rounded-lg file:border-0 file:bg-[#0e2a47] file:px-3 file:py-1.5 file:text-sm file:text-white file:cursor-pointer"
           />
+          <p className="mt-1 text-xs text-neutral-500">
+            Formatos aceitos: JPG, JPEG, PNG e WEBP.
+          </p>
+          {avatarUrl && (
+            <div className="mt-3 flex items-center gap-3">
+              <img src={avatarUrl} alt="Avatar atual" className="h-12 w-12 rounded-full object-cover" />
+              <span className="text-xs text-neutral-500">Avatar atual</span>
+            </div>
+          )}
         </div>
         <div>
           <label htmlFor="headline" className="block text-sm font-medium text-neutral-700">
